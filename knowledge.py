@@ -3,6 +3,8 @@ import chromadb
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field, field_validator
 
+from tool_utils import error_json, success_json
+
 
 # ================================================================
 # Документи бази знань
@@ -249,62 +251,31 @@ def search_knowledge(
         top_k: Кількість документів для повернення.
 
     Returns:
-        Найбільш релевантні фрагменти внутрішньої бази знань.
+        JSON-рядок {"status": "success", "data": {"results": [...]}} з
+        найбільш релевантними фрагментами бази знань або
+        {"status": "error", "error": "..."} у разі помилки.
     """
 
-    results = collection.query(
-        query_texts=[
-            query
-        ],
-        n_results=top_k,
-    )
-
-
-    documents = (
-        results.get(
-            "documents",
-            [[]],
-        )[0]
-    )
-
-    metadatas = (
-        results.get(
-            "metadatas",
-            [[]],
-        )[0]
-    )
-
-
-    if not documents:
-
-        return (
-            "У базі знань не знайдено "
-            "релевантної інформації."
+    try:
+        results = collection.query(
+            query_texts=[query],
+            n_results=top_k,
         )
 
+        documents = results.get("documents", [[]])[0]
+        metadatas = results.get("metadatas", [[]])[0]
 
-    formatted_results = []
+        if not documents:
+            return success_json({"results": []})
 
+        formatted_results = [
+            {
+                "title": (metadata.get("title", "Без назви") if metadata else "Без назви"),
+                "text": document,
+            }
+            for document, metadata in zip(documents, metadatas)
+        ]
 
-    for document, metadata in zip(
-        documents,
-        metadatas,
-    ):
-
-        title = (
-            metadata.get(
-                "title",
-                "Без назви",
-            )
-            if metadata
-            else "Без назви"
-        )
-
-        formatted_results.append(
-            f"{title}: {document}"
-        )
-
-
-    return "\n".join(
-        formatted_results
-    )
+        return success_json({"results": formatted_results})
+    except Exception as exc:
+        return error_json(f"Не вдалося виконати пошук у базі знань: {exc}")

@@ -3,4 +3,7 @@ check_models.py
 __pycache__
 agent_state.db
 chroma_db/
+logs/
+graphs/
+.pytest_cache/
 

@@ -3,6 +3,8 @@ from typing import Annotated
 from langchain_core.tools import tool
 from pydantic import AfterValidator, BaseModel, Field, field_validator
 
+from tool_utils import error_json, success_json
+
 
 # ================================================================
 # Спільні валідатори
@@ -67,15 +69,24 @@ def calculate_trip_budget(
         daily_budget: Щоденний бюджет на одну людину в євро.
 
     Returns:
-        Рядок з розрахованим загальним бюджетом.
+        JSON-рядок {"status": "success", "data": {...}} з розрахованим
+        бюджетом або {"status": "error", "error": "..."} у разі помилки.
     """
 
-    total = travelers * days * daily_budget
+    try:
+        total = travelers * days * daily_budget
 
-    return (
-        f"Орієнтовний бюджет подорожі: €{total:.2f} "
-        f"для {travelers} осіб на {days} днів."
-    )
+        return success_json(
+            {
+                "total_budget": round(total, 2),
+                "currency": "EUR",
+                "travelers": travelers,
+                "days": days,
+                "daily_budget": daily_budget,
+            }
+        )
+    except Exception as exc:
+        return error_json(f"Не вдалося розрахувати бюджет: {exc}")
 
 
 # ================================================================
@@ -136,15 +147,24 @@ def estimate_hotel_cost(
         rooms: Кількість номерів.
 
     Returns:
-        Рядок із загальною вартістю проживання.
+        JSON-рядок {"status": "success", "data": {...}} з вартістю
+        проживання або {"status": "error", "error": "..."} у разі помилки.
     """
 
-    total = nights * price_per_night * rooms
+    try:
+        total = nights * price_per_night * rooms
 
-    return (
-        f"Орієнтовна вартість готелю: €{total:.2f} "
-        f"за {rooms} номер(и) на {nights} ночей."
-    )
+        return success_json(
+            {
+                "total_cost": round(total, 2),
+                "currency": "EUR",
+                "nights": nights,
+                "price_per_night": price_per_night,
+                "rooms": rooms,
+            }
+        )
+    except Exception as exc:
+        return error_json(f"Не вдалося розрахувати вартість готелю: {exc}")
 
 
 # ================================================================
@@ -208,37 +228,43 @@ def recommend_transport(
         priority: Пріоритет cheap, fast або balanced.
 
     Returns:
-        Рядок із рекомендованим видом транспорту.
+        JSON-рядок {"status": "success", "data": {...}} з рекомендованим
+        транспортом або {"status": "error", "error": "..."} у разі помилки.
     """
 
-    if distance_km < 10:
-        transport = "громадський транспорт або таксі"
+    try:
+        if distance_km < 10:
+            transport = "громадський транспорт або таксі"
 
-    elif distance_km < 300:
-        if priority == "cheap":
-            transport = "автобус"
-        elif priority == "fast":
-            transport = "потяг"
+        elif distance_km < 300:
+            if priority == "cheap":
+                transport = "автобус"
+            elif priority == "fast":
+                transport = "потяг"
+            else:
+                transport = "потяг або автобус"
+
+        elif distance_km < 1000:
+            if priority == "cheap":
+                transport = "автобус або потяг"
+            elif priority == "fast":
+                transport = "літак"
+            else:
+                transport = "потяг"
+
         else:
-            transport = "потяг або автобус"
-
-    elif distance_km < 1000:
-        if priority == "cheap":
-            transport = "автобус або потяг"
-        elif priority == "fast":
             transport = "літак"
-        else:
-            transport = "потяг"
 
-    else:
-        transport = "літак"
-
-    return (
-        f"Рекомендований транспорт: {transport}. "
-        f"Відстань: {distance_km:.0f} км, "
-        f"мандрівників: {travelers}, "
-        f"пріоритет: {priority}."
-    )
+        return success_json(
+            {
+                "recommended_transport": transport,
+                "distance_km": distance_km,
+                "travelers": travelers,
+                "priority": priority,
+            }
+        )
+    except Exception as exc:
+        return error_json(f"Не вдалося порекомендувати транспорт: {exc}")
 
 # ================================================================
 # UNIT TESTS

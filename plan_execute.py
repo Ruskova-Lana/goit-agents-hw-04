@@ -1,4 +1,5 @@
 import operator
+import os
 import sqlite3
 import sys
 
@@ -25,6 +26,7 @@ from tools import (
 
 from knowledge import search_knowledge
 from hitl import book_hotel
+from tool_utils import safe_tool_invoke
 
 
 # ================================================================
@@ -108,6 +110,10 @@ class PlanExecuteState(TypedDict):
 
     # Tool call, який очікує HITL approval
     pending_tool_call: dict | None
+
+    # Рішення людини (approve/reject/edit), записане через
+    # app.update_state() перед відновленням після interrupt_before
+    human_decision: dict | None
 
     # Demo-пауза для перевірки persistence
     pause_after_first_step: bool
@@ -544,10 +550,12 @@ def executor_node(
 
     # ============================================================
     # Звичайний tool виконуємо одразу
+    # safe_tool_invoke гарантує JSON-контракт навіть при помилці
     # ============================================================
 
-    tool_result = tool_function.invoke(
-        tool_args
+    tool_result = safe_tool_invoke(
+        tool_function,
+        tool_args,
     )
 
 
@@ -686,13 +694,23 @@ def checkpoint_pause_node(
 # ================================================================
 # HUMAN-IN-THE-LOOP APPROVAL
 # ================================================================
+#
+# Граф компілюється з interrupt_before=["approval"] (див. секцію
+# SQLITE CHECKPOINTER нижче), тому виконання ЗУПИНЯЄТЬСЯ ще ДО того,
+# як цей node почне виконуватись. Людина бачить деталі ризикової дії
+# через app.get_state(config).values["pending_tool_call"], записує своє
+# рішення через app.update_state(config, {"human_decision": {...}}),
+# і лише тоді app.invoke(None, config) відновлює граф — approval_node
+# запускається з уже заповненим state["human_decision"].
 
 def approval_node(
     state: PlanExecuteState,
 ) -> dict:
-    """Зупиняє workflow перед виконанням ризикового tool.
+    """Виконує (або відхиляє) ризиковий tool за рішенням людини.
 
-    Підтримує:
+    Рішення (approve / reject / edit) вже мало бути записане у
+    state["human_decision"] ЗОВНІ, до відновлення graph після
+    interrupt_before. Підтримує:
     - approve
     - reject
     - edit
@@ -722,66 +740,22 @@ def approval_node(
 
 
     # ============================================================
-    # INTERRUPT
+    # Рішення людини (записане через app.update_state() ДО resume)
     # ============================================================
 
-    approval = interrupt(
-        {
-            "type": "approval_required",
+    decision = state.get(
+        "human_decision"
+    ) or {
+        "action": "reject",
+        "reason": "Рішення людини не було надано.",
+    }
 
-            "message": (
-                "Потрібне підтвердження "
-                "ризикової дії."
-            ),
-
-            "tool": tool_name,
-
-            "args": original_args,
-
-            "allowed_actions": [
-                "approve",
-                "reject",
-                "edit",
-            ],
-
-            "instructions": {
-                "approve": (
-                    "Виконати tool з поточними параметрами."
-                ),
-
-                "reject": (
-                    "Не виконувати ризикову дію."
-                ),
-
-                "edit": (
-                    "Замінити параметри та виконати tool."
-                ),
-            },
-        }
-    )
-
-
-    # ============================================================
-    # Визначаємо рішення людини
-    # ============================================================
-
-    if isinstance(
-        approval,
-        dict,
-    ):
-
-        action = str(
-            approval.get(
-                "action",
-                "reject",
-            )
-        ).lower()
-
-    else:
-
-        action = str(
-            approval
-        ).lower()
+    action = str(
+        decision.get(
+            "action",
+            "reject",
+        )
+    ).lower()
 
 
     tool_function = tools_by_name[
@@ -795,8 +769,9 @@ def approval_node(
 
     if action == "approve":
 
-        tool_result = tool_function.invoke(
-            original_args
+        tool_result = safe_tool_invoke(
+            tool_function,
+            original_args,
         )
 
 
@@ -811,44 +786,33 @@ def approval_node(
 
     elif action == "edit":
 
-        if not isinstance(
-            approval,
-            dict,
-        ):
+        edited_args = decision.get(
+            "args"
+        )
+
+
+        if not edited_args:
 
             result_text = (
                 "Edit відхилено: "
-                "оновлені параметри не передані."
+                "поле args відсутнє."
             )
 
         else:
 
-            edited_args = approval.get(
-                "args"
+            # safe_tool_invoke гарантує JSON-контракт навіть
+            # при помилці Pydantic-валідації edited_args.
+            tool_result = safe_tool_invoke(
+                tool_function,
+                edited_args,
             )
 
 
-            if not edited_args:
-
-                result_text = (
-                    "Edit відхилено: "
-                    "поле args відсутнє."
-                )
-
-            else:
-
-                # Pydantic validation відбудеться
-                # усередині tool.invoke()
-                tool_result = tool_function.invoke(
-                    edited_args
-                )
-
-
-                result_text = (
-                    f"{tool_name} "
-                    f"(параметри змінено): "
-                    f"{tool_result}"
-                )
+            result_text = (
+                f"{tool_name} "
+                f"(параметри змінено): "
+                f"{tool_result}"
+            )
 
 
     # ============================================================
@@ -857,18 +821,12 @@ def approval_node(
 
     else:
 
-        reason = ""
-
-        if isinstance(
-            approval,
-            dict,
-        ):
-            reason = str(
-                approval.get(
-                    "reason",
-                    ""
-                )
+        reason = str(
+            decision.get(
+                "reason",
+                "",
             )
+        )
 
 
         result_text = (
@@ -900,6 +858,8 @@ def approval_node(
         "current_step": step_index + 1,
 
         "pending_tool_call": None,
+
+        "human_decision": None,
 
         "results": [
             *state["results"],
@@ -1220,8 +1180,12 @@ saver = SqliteSaver(
 )
 
 
+# interrupt_before=["approval"]: граф зупиняється ПЕРЕД виконанням
+# ризикового tool — без явного виклику interrupt() у самому node.
+# Це саме той механізм HITL, який вимагає завдання (item 7).
 app = graph.compile(
-    checkpointer=saver
+    checkpointer=saver,
+    interrupt_before=["approval"],
 )
 
 
@@ -1253,6 +1217,8 @@ def create_initial_state(
         "goal": "",
 
         "pending_tool_call": None,
+
+        "human_decision": None,
 
         "pause_after_first_step": (
             pause_after_first_step
@@ -1313,6 +1279,45 @@ def print_interrupts(
         print(
             value
         )
+
+
+def print_pending_approval(
+    config: dict,
+) -> bool:
+    """Показує деталі ризикової дії, якщо граф зупинено interrupt_before.
+
+    Повертає True, якщо граф справді очікує на approval-рішення людини.
+    """
+
+    snapshot = app.get_state(
+        config
+    )
+
+    if snapshot.next != ("approval",):
+        return False
+
+    pending = snapshot.values.get(
+        "pending_tool_call"
+    )
+
+    print("\n" + "=" * 70)
+    print("GRAPH INTERRUPTED (interrupt_before='approval')")
+    print("=" * 70)
+
+    print(
+        f"Tool: {pending['name']}"
+    )
+
+    print(
+        f"Args: {pending['args']}"
+    )
+
+    print(
+        "\nПотрібне підтвердження ризикової дії: "
+        "approve / reject / edit."
+    )
+
+    return True
 
 
 # ================================================================
@@ -1716,7 +1721,7 @@ DEFAULT_HITL_THREAD_ID = (
 def start_hitl_demo(
     thread_id: str,
 ) -> None:
-    """Запускає сценарій до interrupt перед book_hotel."""
+    """Запускає сценарій до interrupt_before='approval' перед book_hotel."""
 
     query = (
         "Я хочу забронювати Demo Travel Hotel "
@@ -1731,7 +1736,7 @@ def start_hitl_demo(
     )
 
 
-    result = app.invoke(
+    app.invoke(
         create_initial_state(
             query=query,
             pause_after_first_step=False,
@@ -1741,8 +1746,8 @@ def start_hitl_demo(
     )
 
 
-    print_interrupts(
-        result
+    print_pending_approval(
+        config
     )
 
 
@@ -1775,23 +1780,26 @@ def start_hitl_demo(
 def approve_hitl(
     thread_id: str,
 ) -> None:
-    """Підтверджує ризиковий tool."""
+    """Підтверджує ризиковий tool через update_state() + invoke(None, ...)."""
 
-    result = app.invoke(
-        Command(
-            resume={
-                "action": "approve"
-            }
-        ),
-
-        config=make_config(
-            thread_id
-        ),
+    config = make_config(
+        thread_id
     )
 
+    # Записуємо рішення людини у state ДО відновлення graph.
+    app.update_state(
+        config,
+        {
+            "human_decision": {
+                "action": "approve"
+            }
+        },
+    )
 
-    print_interrupts(
-        result
+    # None означає "продовжити з місця зупинки interrupt_before".
+    result = app.invoke(
+        None,
+        config=config,
     )
 
 
@@ -1817,11 +1825,16 @@ def approve_hitl(
 def reject_hitl(
     thread_id: str,
 ) -> None:
-    """Відхиляє ризиковий tool."""
+    """Відхиляє ризиковий tool через update_state() + invoke(None, ...)."""
 
-    result = app.invoke(
-        Command(
-            resume={
+    config = make_config(
+        thread_id
+    )
+
+    app.update_state(
+        config,
+        {
+            "human_decision": {
                 "action": "reject",
 
                 "reason": (
@@ -1829,16 +1842,12 @@ def reject_hitl(
                     "не виконувати бронювання."
                 ),
             }
-        ),
-
-        config=make_config(
-            thread_id
-        ),
+        },
     )
 
-
-    print_interrupts(
-        result
+    result = app.invoke(
+        None,
+        config=config,
     )
 
 
@@ -1864,11 +1873,16 @@ def reject_hitl(
 def edit_hitl(
     thread_id: str,
 ) -> None:
-    """Змінює параметри risky tool і виконує його."""
+    """Змінює параметри risky tool і виконує його через update_state()."""
 
-    result = app.invoke(
-        Command(
-            resume={
+    config = make_config(
+        thread_id
+    )
+
+    app.update_state(
+        config,
+        {
+            "human_decision": {
                 "action": "edit",
 
                 "args": {
@@ -1885,16 +1899,12 @@ def edit_hitl(
                     "total_cost": 300,
                 },
             }
-        ),
-
-        config=make_config(
-            thread_id
-        ),
+        },
     )
 
-
-    print_interrupts(
-        result
+    result = app.invoke(
+        None,
+        config=config,
     )
 
 
@@ -1972,6 +1982,28 @@ def run_plan_execute_examples() -> None:
 
 
 # ================================================================
+# ВІЗУАЛІЗАЦІЯ (додаткова вимога): Mermaid-діаграма графа
+# ================================================================
+
+def export_graph_diagram() -> str:
+    """Зберігає Mermaid-діаграму Plan-and-Execute графа у graphs/plan_execute.mmd."""
+
+    os.makedirs("graphs", exist_ok=True)
+
+    mermaid_text = app.get_graph().draw_mermaid()
+
+    path = os.path.join("graphs", "plan_execute.mmd")
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(mermaid_text)
+
+    print(mermaid_text)
+    print(f"\nMermaid-діаграма збережена у: {path}")
+
+    return path
+
+
+# ================================================================
 # CLI
 # ================================================================
 
@@ -2030,6 +2062,13 @@ python plan_execute.py reject hitl-reject-001
 
 python plan_execute.py hitl hitl-edit-001
 python plan_execute.py edit hitl-edit-001
+
+
+ВІЗУАЛІЗАЦІЯ
+
+python plan_execute.py graph
+    Вивести та зберегти Mermaid-діаграму графа
+    (graphs/plan_execute.mmd).
 
 ============================================================
 """
@@ -2156,6 +2195,11 @@ if __name__ == "__main__":
         edit_hitl(
             thread_id
         )
+
+
+    elif command == "graph":
+
+        export_graph_diagram()
 
 
     else:

@@ -1,6 +1,8 @@
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field, field_validator
 
+from tool_utils import error_json, success_json
+
 
 # ================================================================
 # Pydantic schema для ризикового tool
@@ -124,13 +126,20 @@ def book_hotel(
         total_cost: Загальна вартість у EUR.
 
     Returns:
-        Підтвердження mock-бронювання.
+        JSON-рядок {"status": "success", "data": {...}} з підтвердженням
+        mock-бронювання або {"status": "error", "error": "..."} у разі помилки.
     """
 
-    return (
-        f"Заброньовано: {hotel_name}, "
-        f"дата заїзду {check_in}, "
-        f"{nights} ночей, "
-        f"загальна вартість €{total_cost:.2f}. "
-        f"Booking ID: DEMO-BOOKING-001."
-    )
+    try:
+        return success_json(
+            {
+                "hotel_name": hotel_name,
+                "check_in": check_in,
+                "nights": nights,
+                "total_cost": total_cost,
+                "currency": "EUR",
+                "booking_id": "DEMO-BOOKING-001",
+            }
+        )
+    except Exception as exc:
+        return error_json(f"Не вдалося забронювати готель: {exc}")
