@@ -2,9 +2,17 @@
 check_models.py
 __pycache__
 agent_state.db
+agent_state.db-shm
+agent_state.db-wal
 mas_state.db
+mas_state.db-shm
+mas_state.db-wal
 hitl_demo_state.db
+hitl_demo_state.db-shm
+hitl_demo_state.db-wal
 hitl_mcp_demo_state.db
+hitl_mcp_demo_state.db-shm
+hitl_mcp_demo_state.db-wal
 trajectory.json
 chroma_db/
 logs/

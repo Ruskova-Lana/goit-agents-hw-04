@@ -1,0 +1,102 @@
+{
+  "summary": {
+    "total_tests": 4,
+    "successful": 3,
+    "stopped": 0,
+    "errors": 1
+  },
+  "results": [
+    {
+      "test_id": "TC-001",
+      "complexity": "simple",
+      "query": "Я їду удвох на 5 днів. Щоденний бюджет на одну людину — 80 євро. Порахуй загальний бюджет подорожі.",
+      "expected": "Агент повинен використати calculate_trip_budget і розрахувати загальний бюджет €800.",
+      "actual": {
+        "answer": "Загальний бюджет вашої подорожі на двох на 5 днів при щоденних витратах 80 євро на людину складе **800 євро**.",
+        "confidence": 1.0,
+        "sources": [
+          "calculate_trip_budget"
+        ]
+      },
+      "status": "success",
+      "steps": 2,
+      "tool_calls": [
+        "calculate_trip_budget"
+      ],
+      "elapsed_ms": 54717,
+      "max_steps_reached": false,
+      "timeout_reached": false,
+      "loop_detected": false,
+      "stop_reason": null
+    },
+    {
+      "test_id": "TC-002",
+      "complexity": "medium",
+      "query": "Я планую подорож на 4 дні для двох людей. Щоденний бюджет на одну людину — 70 євро. Також хочу забронювати один номер на 4 ночі по 100 євро за ніч. Порахуй бюджет подорожі та окремо вартість готелю.",
+      "expected": "Агент повинен використати calculate_trip_budget та estimate_hotel_cost. Бюджет подорожі — €560, готель — €400.",
+      "actual": {
+        "answer": "Ось розрахунки для вашої подорожі: **Бюджет подорожі:** Орієнтовно **560 євро** для двох осіб на 4 дні (з розрахунку 70 євро на день на людину). **Вартість готелю:** Проживання в одному номері протягом 4 ночей коштуватиме **400 євро**. Бажаю гарної поїздки!",
+        "confidence": 1.0,
+        "sources": [
+          "calculate_trip_budget",
+          "estimate_hotel_cost"
+        ]
+      },
+      "status": "success",
+      "steps": 2,
+      "tool_calls": [
+        "calculate_trip_budget",
+        "estimate_hotel_cost"
+      ],
+      "elapsed_ms": 11501,
+      "max_steps_reached": false,
+      "timeout_reached": false,
+      "loop_detected": false,
+      "stop_reason": null
+    },
+    {
+      "test_id": "TC-003",
+      "complexity": "medium",
+      "query": "Двоє людей планують подорож на відстань 500 км. Для них найважливіша швидкість. Подорож триватиме 5 днів, щоденний бюджет на одну людину — 90 євро. Порекомендуй транспорт і порахуй загальний бюджет.",
+      "expected": "Агент повинен використати recommend_transport та calculate_trip_budget. Для 500 км з пріоритетом швидкості рекомендовано літак, а бюджет становить €900.",
+      "actual": {
+        "answer": "Для вашої подорожі на відстань 500 км, де найважливішим фактором є швидкість, найкращим варіантом буде **літак**. Щодо фінансової частини: орієнтовний бюджет для двох осіб на 5 днів (при щоденних витратах 90 євро на людину) складе **900 євро**.",
+        "confidence": 0.95,
+        "sources": [
+          "recommend_transport",
+          "calculate_trip_budget"
+        ]
+      },
+      "status": "success",
+      "steps": 2,
+      "tool_calls": [
+        "recommend_transport",
+        "calculate_trip_budget"
+      ],
+      "elapsed_ms": 7242,
+      "max_steps_reached": false,
+      "timeout_reached": false,
+      "loop_detected": false,
+      "stop_reason": null
+    },
+    {
+      "test_id": "TC-004",
+      "complexity": "complex",
+      "query": "Допоможи спланувати подорож для двох людей на 7 днів. Відстань до місця призначення — 1200 км, головний пріоритет — швидкість. Щоденний бюджет на одну людину — 75 євро. Також потрібен один готельний номер на 6 ночей по 110 євро за ніч. Порекомендуй транспорт, порахуй бюджет подорожі та окремо вартість готелю.",
+      "expected": "Агент повинен використати recommend_transport, calculate_trip_budget та estimate_hotel_cost. Для 1200 км рекомендовано літак, бюджет подорожі — €1050, вартість готелю — €660.",
+      "actual": {
+        "answer": "Error: Error calling model 'gemini-3-flash-preview' (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-3-flash\\nPlease retry in 37.963524206s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerDayPerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3-flash'}, 'quotaValue': '20'}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '37s'}]}}",
+        "confidence": 0,
+        "sources": []
+      },
+      "status": "error",
+      "steps": -1,
+      "tool_calls": [],
+      "elapsed_ms": 34447,
+      "max_steps_reached": false,
+      "timeout_reached": false,
+      "loop_detected": false,
+      "stop_reason": null
+    }
+  ]
+}

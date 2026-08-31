@@ -1,0 +1,129 @@
+{
+  "summary": {
+    "total_scenarios": 5,
+    "passed": 5,
+    "partial": 0,
+    "failed": 0,
+    "generated_at": "2026-08-31T14:08:18.292039+00:00"
+  },
+  "results": [
+    {
+      "scenario_id": "EVAL-01",
+      "type": "simple_billing",
+      "query": "Я їду сама на 3 дні. Щоденний бюджет — 60 євро. Порахуй загальний бюджет подорожі.",
+      "expected": "supervisor -> billing; єдиний tool_call: calculate_trip_budget",
+      "status": "pass",
+      "latency_ms": 4389,
+      "agents_used": [
+        "billing"
+      ],
+      "tools_called": [
+        "calculate_trip_budget"
+      ],
+      "answer": "Крок 1: calculate_trip_budget: {\"status\": \"success\", \"data\": {\"total_budget\": 180.0, \"currency\": \"EUR\", \"travelers\": 1, \"days\": 3, \"daily_budget\": 60.0}}",
+      "checks": {
+        "routed_to_billing": true,
+        "called_calculate_trip_budget": true,
+        "no_other_tools": true,
+        "single_tool_call": true
+      }
+    },
+    {
+      "scenario_id": "EVAL-02",
+      "type": "multi_step_tech",
+      "query": "Порекомендуй транспорт для двох окремих маршрутів: перший — 300 км, пріоритет дешевше; другий — 1200 км, пріоритет швидкість.",
+      "expected": "supervisor -> tech; 2-3 кроки (>=2 виклики recommend_transport)",
+      "status": "pass",
+      "latency_ms": 3414,
+      "agents_used": [
+        "tech"
+      ],
+      "tools_called": [
+        "recommend_transport",
+        "recommend_transport"
+      ],
+      "answer": "Ось рекомендації для обох маршрутів:\n\n1. **Маршрут 300 км (пріоритет — дешевше):**\n   * **Рекомендований транспорт:** автобус або потяг. Вони забезпечують оптимальне співвідношення ціни для такої відстані.\n\n2. **Маршрут 1200 км (пріоритет — швидкість):**\n   * **Рекомендований транспорт:** літак. На такій великій відстані авіапереліт є найшвидшим способом дістатися пункту призначення.",
+      "checks": {
+        "routed_to_tech": true,
+        "used_recommend_transport": true,
+        "no_other_tools": true
+      },
+      "notes": "LLM викликав recommend_transport 2 раз(и) (multi-step підтверджено)."
+    },
+    {
+      "scenario_id": "EVAL-03",
+      "type": "rag_heavy",
+      "query": "Які документи потрібні перед міжнародною подорожжю і чи варто оформити страхування?",
+      "expected": "supervisor -> researcher; tool: search_knowledge (Agentic RAG, ChromaDB); довідково — той самий контент доступний і як MCP resource travel://knowledge-base",
+      "status": "pass",
+      "latency_ms": 3707,
+      "agents_used": [
+        "researcher"
+      ],
+      "tools_called": [
+        "search_knowledge"
+      ],
+      "answer": "Перед міжнародною подорожжю необхідно виконати такі кроки:\n\n1. **Перевірити документи:**\n   * Перевірте термін дії вашого **паспорта** (зазвичай він має бути дійсним ще щонайменше 3–6 місяців після завершення поїздки).\n   * Уточніть **візові вимоги** та правила в'їзду до країни призначення.\n\n2. **Оформити страхування:**\n   * Так, **туристичне страхування обов'язково варто оформити**. Рекомендується мати поліс, який покриває невідкладну медичну допомогу, госпіталізацію та репатріацію.",
+      "checks": {
+        "routed_to_researcher": true,
+        "used_search_knowledge": true,
+        "no_other_tools": true,
+        "mentions_insurance_or_documents": true
+      }
+    },
+    {
+      "scenario_id": "EVAL-04",
+      "type": "cross_agent",
+      "query": "Порекомендуй транспорт на 900 км (пріоритет швидкість) і порахуй бюджет подорожі для 2 осіб на 6 днів по 85 євро на день.",
+      "expected": "supervisor -> billing АБО tech (з handoff) — або general, якщо LLM класифікує запит як змішаний",
+      "status": "pass",
+      "latency_ms": 2969,
+      "agents_used": [
+        "general"
+      ],
+      "tools_called": [
+        "recommend_transport",
+        "calculate_trip_budget"
+      ],
+      "answer": "Для вашої подорожі я підготував такі розрахунки та рекомендації:\n\n1. **Рекомендація транспорту:**\n   * **Відстань:** 900 км\n   * **Пріоритет:** Швидкість (`fast`)\n   * **Рекомендований транспорт:** **Літак** (найшвидший варіант для такої відстані).\n\n2. **Бюджет подорожі:**\n   * **Кількість мандрівників:** 2 особи\n   * **Тривалість:** 6 днів\n   * **Щоденний бюджет на одну людину:** 85 євро\n   * **Загальний орієнтовний бюджет:** **1020 євро**\n\nЯкщо вам потрібно підрахувати вартість готелю або знайти додаткову інформацію, звертайтеся!",
+      "checks": {
+        "used_recommend_transport": true,
+        "used_calculate_trip_budget": true
+      },
+      "notes": "supervisor маршрутизував на ['general'] — обидва tools викликано в межах ОДНОГО агента (general має повний набір tools), тому результат покриває обидва домени навіть без явного handoff."
+    },
+    {
+      "scenario_id": "EVAL-05",
+      "type": "hitl_flow",
+      "query": "Забронюй, будь ласка, Demo Travel Hotel з 2026-10-01 на 3 ночі за 300 євро. Я підтверджую бронювання.",
+      "expected": "billing -> book_hotel -> graph pauses (interrupt_before='billing_approval') -> app.update_state({'human_decision': {'action': 'approve'}}) + invoke(None) -> booking_id",
+      "status": "pass",
+      "latency_ms": 56256,
+      "agents_used": [
+        "billing"
+      ],
+      "tools_called": [
+        "estimate_hotel_cost",
+        "book_hotel"
+      ],
+      "answer": "Крок 1: estimate_hotel_cost: {\"status\": \"success\", \"data\": {\"total_cost\": 300.0, \"currency\": \"EUR\", \"nights\": 3, \"price_per_night\": 100.0, \"rooms\": 1}} | Крок 2: book_hotel: {\"status\": \"success\", \"data\": {\"hotel_name\": \"Demo Travel Hotel\", \"check_in\": \"2026-10-01\", \"nights\": 3, \"total_cost\": 300.0, \"currency\": \"EUR\", \"booking_id\": \"DEMO-BOOKING-001\"}}",
+      "checks": {
+        "routed_to_billing": true,
+        "graph_paused_before_book_hotel": true,
+        "book_hotel_called_after_approve": true,
+        "booking_confirmed": true
+      },
+      "pending_tool_call_at_pause": {
+        "name": "book_hotel",
+        "args": {
+          "hotel_name": "Demo Travel Hotel",
+          "nights": 3,
+          "check_in": "2026-10-01",
+          "total_cost": 300
+        },
+        "step_index": 1,
+        "step_text": "Викликати tool book_hotel для фактичного бронювання готелю після підтвердження користувача."
+      }
+    }
+  ]
+}

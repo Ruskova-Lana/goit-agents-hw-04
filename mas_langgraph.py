@@ -66,9 +66,16 @@ from guardrails import (
     output_guardrail,
     tool_guardrail,
 )
+import observability
 
 
 load_dotenv()
+
+# Завд. 5: явне (не мовчазне) увімкнення LangSmith-трейсингу — статус
+# логується одразу при імпорті модуля, щоб було видно, чи трейсинг
+# реально активний, а не просто "має спрацювати сам".
+_TRACING_STATUS = observability.configure_tracing()
+print(f"[observability] {_TRACING_STATUS['reason']}")
 
 
 # ================================================================
@@ -256,8 +263,12 @@ def format_results(results: list[str]) -> str:
     return "\n".join(f"- {r}" for r in results)
 
 
-def make_config(thread_id: str) -> dict:
-    return {"configurable": {"thread_id": thread_id}}
+def make_config(thread_id: str, agent_hint: str | None = None) -> dict:
+    """LangGraph config для thread_id — делегує в observability.traced_config()
+    для LangSmith tags/metadata/run_name (Завд. 5), а не лише "голий"
+    configurable.thread_id."""
+
+    return observability.traced_config(thread_id, agent_hint=agent_hint)
 
 
 def _extract_text(content) -> str:
