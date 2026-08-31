@@ -691,9 +691,9 @@ python mcp_agent_demo.py prompts     # заповнює обидва MCP prompts
 
 | # | Функція/клас | Що робить | Де підключено в MAS |
 |---|---|---|---|
-| 1 | `input_guardrail(text)` | Блокує prompt injection (patterns EN/UA), ліміт довжини, очищення непринтованих символів | `supervisor_node` — ДО будь-якого звернення до LLM |
+| 1 | `input_guardrail(text)` | 3 незалежні шари: length-check → regex на ВІДОМІ injection-фрази (EN/UA) → heuristics (2+ підозрілих "командних" слів або context-stuffing) — ловить і дослівні, і перефразовані атаки | `supervisor_node` — ДО будь-якого звернення до LLM |
 | 2 | `tool_guardrail(agent, tool)` | Allowlist: якому агенту які tools дозволено | `billing_executor_node` + shared `tools_node` (tech/researcher/general) — ДО `safe_tool_invoke()` |
-| 3 | `output_guardrail(text)` | Маскує CARD/IBAN_UA/EMAIL/IPN/PHONE_INT у відповіді | `run_query()` — межа системи, перед показом користувачу |
+| 3 | `output_guardrail(text)` | Маскує CARD/IBAN_UA/PASSPORT/EMAIL/IPN/PHONE_INT у відповіді | `run_query()` — межа системи, перед показом користувачу |
 | 4 | `RateLimiter` | Rolling-window ліміт запитів per `thread_id` (session) | `supervisor_node` — перед `input_guardrail`, навіть блокований запит не тратить LLM-виклик |
 
 Заблокований запит (input guardrail або rate limit) маршрутизується у
@@ -790,8 +790,12 @@ All guardrail self-tests passed!
 
 Покриття: input (безпечний запит, EN/UA injection, обфускований
 zero-width-space bypass — регресійний тест на виправлений bug, задовгий
-запит, не-рядок), output (EMAIL+PHONE, CARD, IBAN_UA, IPN, і негативний
-тест — звичайні бізнес-дані на кшталт "800 EUR" НЕ маркуються як PII),
+запит, не-рядок, heuristic-шар — перефразована атака без точного
+regex-збігу, що ловиться лише 2+ підозрілими "командними" словами
+(`override`+`unlock`) або context-stuffing, і негативний тест — один
+випадковий збіг слова НЕ блокує), output (EMAIL+PHONE, CARD, IBAN_UA,
+IPN, PASSPORT (укр. та закордонний формат), і негативний тест —
+звичайні бізнес-дані на кшталт "800 EUR" НЕ маркуються як PII),
 tool (billing/tech/researcher/general allowlist; `book_hotel` дозволений
 billing і general, заборонений tech/researcher — сам факт "потребує
 HITL" перевіряється окремо у `hitl.py`, див. нижче), rate-limit (ліміт

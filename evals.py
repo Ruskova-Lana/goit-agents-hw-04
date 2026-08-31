@@ -15,9 +15,9 @@ support-ticket домену (get_ticket/update_ticket_status), якого в ц�
 calculate_trip_budget/estimate_hotel_cost/recommend_transport/
 search_knowledge/book_hotel), зберігши ТИП кожного сценарію.
 
-Результат — eval_results.json, поля: scenario_id, type, query,
-expected, status (pass/fail/partial), latency_ms, agents_used,
-tools_called, notes.
+Результат — eval_results.json, поля: scenario_id, query,
+expected_behavior, actual, status (pass/fail/partial), latency_ms,
+agents_used, tools_called (+ допоміжні: type, checks, notes).
 
 Запуск:
     python evals.py
@@ -107,12 +107,12 @@ def eval_01() -> dict:
         "scenario_id": "EVAL-01",
         "type": "simple_billing",
         "query": query,
-        "expected": "supervisor -> billing; єдиний tool_call: calculate_trip_budget",
+        "expected_behavior": "supervisor -> billing; єдиний tool_call: calculate_trip_budget",
         "status": status,
         "latency_ms": elapsed_ms,
         "agents_used": agents_used,
         "tools_called": tools_called,
-        "answer": _final_text(result),
+        "actual": _final_text(result),
         "checks": checks,
     }
 
@@ -152,12 +152,12 @@ def eval_02() -> dict:
         "scenario_id": "EVAL-02",
         "type": "multi_step_tech",
         "query": query,
-        "expected": "supervisor -> tech; 2-3 кроки (>=2 виклики recommend_transport)",
+        "expected_behavior": "supervisor -> tech; 2-3 кроки (>=2 виклики recommend_transport)",
         "status": status,
         "latency_ms": elapsed_ms,
         "agents_used": agents_used,
         "tools_called": tools_called,
-        "answer": _final_text(result),
+        "actual": _final_text(result),
         "checks": checks,
         "notes": note,
     }
@@ -189,13 +189,13 @@ def eval_03() -> dict:
         "scenario_id": "EVAL-03",
         "type": "rag_heavy",
         "query": query,
-        "expected": "supervisor -> researcher; tool: search_knowledge (Agentic RAG, ChromaDB); "
+        "expected_behavior": "supervisor -> researcher; tool: search_knowledge (Agentic RAG, ChromaDB); "
         "довідково — той самий контент доступний і як MCP resource travel://knowledge-base",
         "status": status,
         "latency_ms": elapsed_ms,
         "agents_used": agents_used,
         "tools_called": tools_called,
-        "answer": answer,
+        "actual": answer,
         "checks": checks,
     }
 
@@ -244,13 +244,13 @@ def eval_04() -> dict:
         "scenario_id": "EVAL-04",
         "type": "cross_agent",
         "query": query,
-        "expected": "supervisor -> billing АБО tech (з handoff) — або general, якщо LLM "
+        "expected_behavior": "supervisor -> billing АБО tech (з handoff) — або general, якщо LLM "
         "класифікує запит як змішаний",
         "status": status,
         "latency_ms": elapsed_ms,
         "agents_used": agents_used,
         "tools_called": tools_called,
-        "answer": _final_text(result),
+        "actual": _final_text(result),
         "checks": {"used_recommend_transport": used_transport, "used_calculate_trip_budget": used_budget},
         "notes": note,
     }
@@ -305,13 +305,13 @@ def eval_05() -> dict:
         "scenario_id": "EVAL-05",
         "type": "hitl_flow",
         "query": query,
-        "expected": "billing -> book_hotel -> graph pauses (interrupt_before='billing_approval') -> "
+        "expected_behavior": "billing -> book_hotel -> graph pauses (interrupt_before='billing_approval') -> "
         "app.update_state({'human_decision': {'action': 'approve'}}) + invoke(None) -> booking_id",
         "status": status,
         "latency_ms": elapsed_ms_1 + elapsed_ms_2,
         "agents_used": agents_used,
         "tools_called": tools_called,
-        "answer": _final_text(resumed),
+        "actual": _final_text(resumed),
         "checks": checks,
         "pending_tool_call_at_pause": pending,
     }
