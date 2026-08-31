@@ -81,35 +81,35 @@ START → planner → executor ─┬─→ approval ─────┐
 ## 3. Структура файлів
 
 ```
-tools.py                 # Звичайні tools з Pydantic-схемами та валідацією
-                          # (calculate_trip_budget, estimate_hotel_cost, recommend_transport)
-knowledge.py              # ChromaDB + tool search_knowledge (Agentic RAG)
-hitl.py                   # book_hotel + RISKY_TOOLS + approval_gate (HITL, ДЗ4 Завд. 4) + demo CLI
-tool_utils.py              # JSON-контракт tools: success_json/error_json/safe_tool_invoke
-react_agent.py             # LangGraph ReAct-агент: agent + tools + guardrails + JSON-лог + CLI
-plan_execute.py            # LangGraph Plan-and-Execute: planner + executor + replanner + HITL + CLI
-compare_agents.py          # Числове порівняння ReAct vs Plan-and-Execute на одній задачі
-mas_langgraph.py           # ДЗ4 Завд. 1 — MAS: supervisor + billing/tech/researcher/general + CLI
-mcp_server.py               # ДЗ4 Завд. 3 — MCP-сервер: 5 tools + 2 resources + 2 prompts (FastMCP)
+tools.py                    # Звичайні tools з Pydantic-схемами та валідацією
+                            # (calculate_trip_budget, estimate_hotel_cost, recommend_transport)
+knowledge.py                # ChromaDB + tool search_knowledge (Agentic RAG)
+hitl.py                     # book_hotel + RISKY_TOOLS + approval_gate (HITL, ДЗ4 Завд. 4) + demo CLI
+tool_utils.py               # JSON-контракт tools: success_json/error_json/safe_tool_invoke
+react_agent.py              # LangGraph ReAct-агент: agent + tools + guardrails + JSON-лог + CLI
+plan_execute.py             # LangGraph Plan-and-Execute: planner + executor + replanner + HITL + CLI
+compare_agents.py           # Числове порівняння ReAct vs Plan-and-Execute на одній задачі
+mas_langgraph.py            # MAS: supervisor + billing/tech/researcher/general + CLI
+mcp_server.py               # MCP-сервер: 5 tools + 2 resources + 2 prompts (FastMCP)
 test_mcp_server.py          # 15 async-тестів mcp_server.py (list_tools/call_tool/resources/prompts)
-mcp_agent_demo.py           # ДЗ4 Завд. 3 — LangGraph-агент + MultiServerMCPClient + CLI
-guardrails.py                # ДЗ4 Завд. 4 — input/output/tool/rate-limit guardrails + self-tests
-observability.py             # ДЗ4 Завд. 5 — явне налаштування LangSmith-трейсингу (tags/metadata/run_name)
-evals.py                 # ДЗ4 Завд. 5 — 5 scenario-based evals -> eval_results.json
-red_team.py              # ДЗ4 Завд. 5 — 5 adversarial red-team тестів -> red_team_results.json
-eval_results.json             # Результати evals.py (deliverable, комітиться)
-red_team_results.json         # Результати red_team.py (deliverable, комітиться)
-agent_state.db            # SQLite зі збереженим станом Plan-and-Execute (генерується автоматично)
-mas_state.db               # SQLite зі збереженим станом MAS-графа (генерується автоматично)
+mcp_agent_demo.py           # LangGraph-агент + MultiServerMCPClient + CLI
+guardrails.py               # input/output/tool/rate-limit guardrails + self-tests
+observability.py            # явне налаштування LangSmith-трейсингу (tags/metadata/run_name)
+evals.py                    # 5 scenario-based evals -> eval_results.json
+red_team.py                 # 5 adversarial red-team тестів -> red_team_results.json
+eval_results.json           # Результати evals.py (deliverable, комітиться)
+red_team_results.json       # Результати red_team.py (deliverable, комітиться)
+agent_state.db              # SQLite зі збереженим станом Plan-and-Execute (генерується автоматично)
+mas_state.db                # SQLite зі збереженим станом MAS-графа (генерується автоматично)
 hitl_demo_state.db          # SQLite для локального демо-графа hitl.py (генерується автоматично)
 hitl_mcp_demo_state.db      # AsyncSqliteSaver для MCP-tool демо-графа hitl.py (генерується автоматично)
 trajectory.json             # Повний JSON-лог MAS-виконання (генерується `mas_langgraph.py demo`)
-chroma_db/                # Локальна векторна база ChromaDB (генерується автоматично)
-logs/                     # JSON-траєкторії, лог порівнянь (генерується автоматично)
-graphs/                   # Mermaid-діаграми графів (генерується автоматично)
-tests/                    # pytest-тести (валідація схем, tools, ReAct-цикл)
-requirements.txt          # Залежності Python
-README.md                 # Цей файл
+chroma_db/                  # Локальна векторна база ChromaDB (генерується автоматично)
+logs/                       # JSON-траєкторії, лог порівнянь (генерується автоматично)
+graphs/                     # Mermaid-діаграми графів (генерується автоматично)
+tests/                      # pytest-тести (валідація схем, tools, ReAct-цикл)
+requirements.txt            # Залежності Python
+README.md                   # Цей файл
 ```
 
 ## 4. Встановлення
