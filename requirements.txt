@@ -6,3 +6,7 @@ langgraph-checkpoint-sqlite
 chromadb
 pydantic>=2.0
 pytest
+pytest-asyncio
+mcp>=1.20
+langchain-mcp-adapters>=0.2
+aiosqlite

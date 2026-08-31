@@ -2,6 +2,10 @@
 check_models.py
 __pycache__
 agent_state.db
+mas_state.db
+hitl_demo_state.db
+hitl_mcp_demo_state.db
+trajectory.json
 chroma_db/
 logs/
 graphs/
